@@ -37,7 +37,6 @@ class QifConverter:
             row_to_process=row_to_process+1
 
             if row_to_process == 3:
-                print(line)
                 account_type = 'CCard' if re.search('Carta di credito', line[0], re.IGNORECASE) is not None else 'Bank'
                 account_name = line[1]
                 mlogger.info ("Processing: " +account_name)
