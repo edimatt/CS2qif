@@ -5,8 +5,11 @@ import argparse
 import csv
 import re
 
+__all__ = ['QifConverter', 'processCsv']
+
 logging.basicConfig(level=logging.DEBUG)
 mlogger = logging.getLogger(__name__)
+
 
 class QifConverter:
     def __init__(self, file_name_inp, file_name_out):
@@ -15,7 +18,7 @@ class QifConverter:
         self.__encoding = 'iso-8859-1'
 
     def __enter__(self):
-        mlogger.debug("Opening " +self.__file_name_inp)
+        mlogger.debug("Opening " + self.__file_name_inp)
         self.__file_handler_inp = open(self.__file_name_inp, "r", encoding=self.__encoding)
         mlogger.debug("Opening " +self.__file_name_out)
         self.__file_handler_out = open(self.__file_name_out, "w", encoding=self.__encoding)

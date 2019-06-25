@@ -1,7 +1,7 @@
 import unittest
 import HtmlTestRunner
 
-from ..Stock import Stock
+from ..Converter import processCsv
 
 class StockTest(unittest.TestCase):
   def testValMustBeNoneWhenInitialized(self):
