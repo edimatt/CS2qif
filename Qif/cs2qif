@@ -12,69 +12,88 @@ mlogger = logging.getLogger(__name__)
 
 
 class QifConverter:
-    def __init__(self, file_name_inp, file_name_out):
+    def __init__(self, file_name_inp, file_name_out, cc=False,
+                 date=datetime(1900,1,1)):
         self.__file_name_inp = file_name_inp
         self.__file_name_out = file_name_out
+        self.cc = cc
         self.__encoding = 'iso-8859-1'
+        self.start_dt = date
 
     def __enter__(self):
         mlogger.debug("Opening " + self.__file_name_inp)
-        self.__file_handler_inp = open(self.__file_name_inp, "r", encoding=self.__encoding)
-        mlogger.debug("Opening " +self.__file_name_out)
-        self.__file_handler_out = open(self.__file_name_out, "w", encoding=self.__encoding)
+        self.__file_handler_inp = open(self.__file_name_inp, "r",
+                                       encoding=self.__encoding)
+        mlogger.debug("Opening " + self.__file_name_out)
+        self.__file_handler_out = open(self.__file_name_out, "w",
+                                       encoding=self.__encoding)
         return self
 
     def __exit__(self, type, value, traceback):
-        mlogger.debug("Closing " +self.__file_name_inp)
+        mlogger.debug("Closing " + self.__file_name_inp)
         self.__file_handler_inp.close()
-        mlogger.debug("Closing " +self.__file_name_out)
+        mlogger.debug("Closing " + self.__file_name_out)
         self.__file_handler_out.close()
         return False
 
     def convertCsv(self):
-        row_to_process=0
-        account_name=None
-        account_type=None
+        row_to_process = 0
+        account_name = None
+        account_type = None
 
         for line in csv.reader(self.__file_handler_inp):
-            row_to_process=row_to_process+1
+            row_to_process = row_to_process+1
+            CC_LINE = 4 if self.cc else 3
+            CC_STOP = 6 if self.cc else 5
 
-            if row_to_process == 3:
+            if row_to_process == CC_LINE:
                 account_type = 'CCard' if re.search('Carta di credito', line[0], re.IGNORECASE) is not None else 'Bank'
                 account_name = line[1]
-                mlogger.info ("Processing: " +account_name)
+                mlogger.info ("Processing: " + account_name)
 
-            if row_to_process == 5:
+            if row_to_process == CC_STOP:
                 break
 
         self.__file_handler_out.write(u"!Account\n")
-        self.__file_handler_out.write(u"N" +account_name +"\n")
-        self.__file_handler_out.write(u"T" +account_type +"\n^\n")
-        self.__file_handler_out.write(u"!Type:" +account_type +"\n")
+        self.__file_handler_out.write(u"N" + account_name + "\n")
+        self.__file_handler_out.write(u"T" + account_type + "\n^\n")
+        self.__file_handler_out.write(u"!Type:" + account_type + "\n")
 
         csv.register_dialect("CREDIT_SUISSE", delimiter=',', doublequote=True, escapechar='\\', quotechar='"', lineterminator="\n")
         csv.register_dialect("QIF", delimiter='\n', quoting=csv.QUOTE_NONE, doublequote=True, escapechar='', quotechar='', lineterminator="\n^\n")
         csfile = csv.DictReader(self.__file_handler_inp, dialect="CREDIT_SUISSE")
         qcsfile = csv.DictWriter(self.__file_handler_out, dialect="QIF", fieldnames=['Data di registrazione','Addebito','Categoria','Testo','Payee'])
 
+        data = 'Data di transazione' if self.cc else 'Data di registrazione'
+        addebito = 'Addebito'
+        accredito = 'Accredito'
+        if self.cc:
+            addebito = addebito + ' CHF'
+            accredito = accredito + ' CHF'
+
+        skipped = False
+
         for row in csfile:
+            # Skip account name
+            if self.cc and not skipped:
+                skipped = True
+                continue
 
             # Skip trailer
-            if row['Data di registrazione'].lower() == 'totale della colonna' or row['Data di registrazione'].lower() == 'registrazione provv.':
+            if row[data].lower() == 'totale della colonna' or row[data].lower() == 'registrazione provv.' or row[data] == 'Totale':
                 continue
 
             # Set up registration date
             try:
-                d=datetime.strptime(row['Data di registrazione'], '%d.%m.%Y')
+                d = datetime.strptime(row[data], '%d.%m.%Y')
+                if d < self.start_dt:
+                    continue
             except ValueError:
                 #d=datetime(9999,12,31)
-                d=datetime.now()
+                d = datetime.now()
 
             # Set up transaction amount
-            try:
-                amount='-' +row['Addebito'] if len(row['Addebito'])!=0  else row['Accredito']
-            except KeyError:
-                amount='-' +row['Addebito CHF'] if len(row['Addebito CHF'])!=0  else row['Accredito CHF']
+            amount='-' +row[addebito] if len(row[addebito])!=0 else row[accredito]
 
             # Identify categories
             cat=None
@@ -86,13 +105,13 @@ class QifConverter:
                 text=row['Descrizione']
 
             while cat is None:
-                m = re.search('NESPRESSO|COOP|Manor|LIDL|MIGROS [A-Z][^R]|ALDI|PLATANERA|LEE TRADING|CONFISERIE SPRUNGLI', text, re.IGNORECASE)
+                m = re.search('DENNER|NESPRESSO|COOP|Manor|LIDL|MIGROS [A-Z][^R]|ALDI|PLATANERA|LEE TRADING|CONFISERIE SPRUNGLI', text, re.IGNORECASE)
                 if m is not None:
                     cat='Groceries'
                     payee=m.group(0)
                     break
 
-                m = re.search('MIGROS MR|NORDSEE|SUBWAY|MITARBEITERRE|RESTAURANT|RISTORANTE|BURGER KING|FOOD COURT 51|Mc Donald|HOLY COW|TRES AMIGOS|STARBUCKS|HOTEL ADLER|ROSSOPOMODORO|CONDITOREI|BRASSERIE FEDERAL|HOOTERS', text, re.IGNORECASE)
+                m = re.search('TRATTORIA|KENTUCKY FRIED CHICK|MIGROS MR|NORDSEE|SUBWAY|MITARBEITERRE|RESTAURANT|RISTORANTE|BURGER KING|FOOD COURT 51|Mc Donald|HOLY COW|TRES AMIGOS|STARBUCKS|HOTEL ADLER|ROSSOPOMODORO|CONDITOREI|BRASSERIE FEDERAL|HOOTERS', text, re.IGNORECASE)
                 if m is not None:
                     cat='Dining Out'
                     payee=m.group(0)
@@ -133,7 +152,8 @@ class QifConverter:
                     payee=m.group(0)
                     break
 
-                m = re.search('SOCAR MANEGG|Eni Coldrerio SN', text)
+                m = re.search('SOCAR MANEGG|Eni Coldrerio SN', text,
+                              re.IGNORECASE)
                 if m is not None:
                     cat='Automobile:Gasoline'
                     payee=m.group(0)
@@ -156,7 +176,7 @@ class QifConverter:
                     payee=m.group(0)
                     break
 
-                m = re.search('MULLER|MUELLER|KIEHL|Rituals|THE BODY SHOP|YVES ROCHER', text)
+                m = re.search('MULLER|MUELLER|Müller|KIEHL|Rituals|THE BODY SHOP|YVES ROCHER', text)
                 if m is not None:
                     cat='Personal Care'
                     payee=m.group(0)
@@ -167,7 +187,7 @@ class QifConverter:
                     cat='Health Care:Medicine'
                     break
 
-                m = re.search('TOYS.*US|BABYWALZ|PRO BABY|BOESNER|zumstein|Orell F', text, re.IGNORECASE)
+                m = re.search('TOYS|BABYWALZ|PRO BABY|BOESNER|zumstein|Orell F', text, re.IGNORECASE)
                 if m is not None:
                     cat='Hobbies/Leisure'
                     payee=m.group(0)
@@ -257,8 +277,8 @@ class QifConverter:
             qcsfile.writerow(outrow)
 
 
-def processCsv(file_name_inp, file_name_out):
-    with QifConverter(file_name_inp, file_name_out) as qif:
+def processCsv(file_name_inp, file_name_out, cc, date):
+    with QifConverter(file_name_inp, file_name_out, cc, date) as qif:
         qif.convertCsv()
 
 
@@ -266,5 +286,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert CREDIT SUISSE csv to qif format")
     parser.add_argument("--filein", default='export.csv', help='Input csv containing the CS transactions')
     parser.add_argument("--fileout", default='export.qif', help='Output file in the QIF format')
+    parser.add_argument("--cc", action='store_true', help='The file to convert is a credit card')
+    parser.add_argument('date', type=lambda s: datetime.strptime(s, '%Y%m%d'),
+                       help='Start date for analysis')
+
     args = parser.parse_args()
-    processCsv(args.filein, args.fileout)
+    processCsv(args.filein, args.fileout, args.cc, args.date)
