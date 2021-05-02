@@ -1,5 +1,2 @@
-
-cs2qif --filein Qif/data/export.csv --fileout Qif/data/export.qif --start_dt 20190805
-
-at /Users/edoardo/.config/cs2qif/categories.json
-{"Groceries": "COOP"}
+This utility converts csv downloaded from the online banking into QIF format
+for import into finance programs like Homebank or GNU Cash.
