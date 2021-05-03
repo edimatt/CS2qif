@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            image 'younata/tox'
+            image 'edimatt/tox'
             args ''
             reuseNode true
         }
@@ -9,7 +9,6 @@ pipeline {
     stages {
         stage('Integration') {
             steps {
-                checkout scm
                 sh 'tox'
             }
         }
