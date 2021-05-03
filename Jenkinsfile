@@ -9,7 +9,7 @@ pipeline {
     stages {
         stage('Integration') {
             steps {
-                sh 'tox'
+                sh 'tox -e py36'
             }
         }
     }
