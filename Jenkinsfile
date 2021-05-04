@@ -23,8 +23,13 @@ pipeline {
                 keepAll: true,
                 reportDir: 'build/htmlcov',
                 reportFiles: 'index.html',
-                reportName: 'Code coverage'
+                reportName: 'CS2qif code coverage'
             ])
+            recordIssues(
+                tool: pyLint(pattern: 'build/warnings.txt'),
+                unstableTotalAll: 20,
+                failedTotalAll: 30
+            )
         }
     } 
 }
