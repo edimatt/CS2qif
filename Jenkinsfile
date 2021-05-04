@@ -15,8 +15,16 @@ pipeline {
     }
     post {
         always {
-            junit 'test-results.xml'
-            cobertura coberturaReportFile: 'coverage.xml'
+            junit 'build/test-results.xml'
+            cobertura coberturaReportFile: 'build/coverage.xml'
+            publishHTML (target: [
+                allowMissing: false,
+                alwaysLinkToLastBuild: false,
+                keepAll: true,
+                reportDir: 'build/htmlcov',
+                reportFiles: 'index.html',
+                reportName: 'Code coverage'
+            ])
         }
     } 
 }

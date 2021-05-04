@@ -27,10 +27,8 @@ class QifConverter:
 
         self.__file_name_inp = file_name_inp
         self.__file_name_out = file_name_out
-        self.__encoding = (
-            chardet.detect(open(self.__file_name_inp, "rb").read())["encoding"]
-            or "iso-8859-1"
-        )
+        with open(self.__file_name_inp, "rb") as inp:
+            self.__encoding = chardet.detect(inp.read())["encoding"] or "iso-8859-1"
         self.cc = cc
         self.start_dt = start_dt
         self.transactions = []
@@ -41,7 +39,8 @@ class QifConverter:
         )
         if os.path.isfile(_cf):
             self._mlogger.info("Reading categories from %s", _cf)
-            self.categories = json.load(open(_cf, "r"))
+            with open(_cf, "r") as cat:
+                self.categories = json.load(cat)
         else:
             self._mlogger.warning("Categories file does not exist: %s.", _cf)
             self.categories = {}
