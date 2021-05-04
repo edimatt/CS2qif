@@ -30,6 +30,7 @@ pipeline {
                 unstableTotalAll: 20,
                 failedTotalAll: 30
             )
+            deleteDir()
         }
     } 
 }
